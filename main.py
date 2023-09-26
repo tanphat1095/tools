@@ -13,7 +13,7 @@ ENV_SIGN = 'SIGN'
 SIGN = "--RELEASED--"
 BREAKLINE = "\n"
 SPLIT_PROP= "="
-ENV_FILE = "./.merge-env"
+ENV_FILE = ".merge-env"
 
 env = {
     # ENV_WORKSPACE : '/mnt/d/test',
@@ -22,14 +22,20 @@ env = {
 }
 
 def load_env():
-    if exist_path(ENV_FILE):
-        for line in open(ENV_FILE):
+    path_env = ENV_FILE
+    if(len(sys.argv) > 1):
+        argv1 = sys.argv[1]
+        if(argv1 != None and len(argv1)  > 0):
+            path_env = join_path(argv1, ENV_FILE)
+    if exist_path(path_env):
+        for line in open(path_env):
             line_arr = line.split(SPLIT_PROP)
             if len(line_arr) >= 2:
                 key = line_arr[0].strip()
                 value = line_arr[1].strip()
                 if(len(key) > 0 and len(value) > 0):
                     env[key] = value
+    print("LOADED ENV: {}".format(env))
 
 
 def exist_path(path):
@@ -88,6 +94,7 @@ def process_inputs(key, value, path_out):
     print("----PROCESS DONE: {} {} {}".format(full_path, BREAKLINE, BREAKLINE))      
 
 def get_from_mapping(path):
+    path = join_path(get_workspace(), path)
     if(exist_path(path) == False):
         return ['']
     else:
