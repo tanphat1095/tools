@@ -1,0 +1,3 @@
+OUPUT_FOLDER=RESULT
+INPUT_FILE=mapping.txt
+SIGN=----->CHECKED<-----
