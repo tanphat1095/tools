@@ -1,7 +1,7 @@
 # Merge file
 This tool has the purpose of combining multiple files into a single file.
 
-For example:
+Introduce:
 
 In the development process, we create a lot of database scripts in several SQL files.
 
