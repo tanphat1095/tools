@@ -9,16 +9,22 @@ ENV_WORKSPACE = 'WORKSPACE'
 ENV_OUPUT_FOLDER = 'OUPUT_FOLDER'
 ENV_INPUT_FILE = 'INPUT_FILE'
 ENV_SIGN = 'SIGN'
+ENV_GET_ALL="GET_ALL"
+ENV_CREATE_NEW_SUB = "CREATE_NEW_SUB"
+ENV_FOLDER_TIME_FORMAT="FOLDER_TIME_FORMAT"
 
 SIGN = "--RELEASED--"
 BREAKLINE = "\n"
 SPLIT_PROP= "="
 ENV_FILE = ".merge-env"
+SPLIT_MULTI_VALUE = ";"
 
 env = {
     # ENV_WORKSPACE : '/mnt/d/test',
     ENV_INPUT_FILE : 'input.txt',
-    ENV_OUPUT_FOLDER : 'RESULT'
+    ENV_OUPUT_FOLDER : 'RESULT',
+    ENV_FOLDER_TIME_FORMAT: '%Y%m%d_%H%M%S',
+    ENV_CREATE_NEW_SUB : 'False'
 }
 
 def load_env():
@@ -77,6 +83,11 @@ def load_input(input):
 
 def process_inputs(key, value, path_out):
     full_path = join_path(path_out, key)
+    get_all = False
+    if(ENV_GET_ALL in env):
+        get_all_values = env[ENV_GET_ALL].split(SPLIT_MULTI_VALUE)
+        get_all = key in get_all_values
+
     print("----PROCESSING: {}".format(full_path))
     if(exist_path(full_path) == False):
         output = open(full_path,'x')
@@ -89,7 +100,7 @@ def process_inputs(key, value, path_out):
         if(input != None and len(input.strip()) > 0):
             input = input.strip()
             output.write("/* {index}. {input} */ {breakline}".format(index = idx+1 ,input=basename(input), breakline=BREAKLINE))
-            output.writelines(process_input(input))
+            output.writelines(process_input(input, get_all))
             output.write(BREAKLINE)
     print("----PROCESS DONE: {} {} {}".format(full_path, BREAKLINE, BREAKLINE))      
 
@@ -102,15 +113,16 @@ def get_from_mapping(path):
         return file.readlines()
 
 
-def process_input(path):
+def process_input(path, get_all = False):
     print("READING {} ...".format(path))
     content = ['']
     if(exist_path(path)):
         file = open(path,'r+')
         content = file.readlines()
-        content = process_content(content)
-        time = datetime.now()
-        file.write("{breakline}{sign} {time}".format(breakline=BREAKLINE ,sign = getSign(), time = time.strftime("%m/%d/%Y, %H:%M:%S")))
+        if(get_all == False):
+            content = process_content(content)
+            time = datetime.now()
+            file.write("{breakline}{sign} {time}".format(breakline=BREAKLINE ,sign = getSign(), time = time.strftime("%m/%d/%Y, %H:%M:%S")))
     print("READ DONE {}{}".format(path, BREAKLINE))
     return content
 
@@ -134,11 +146,24 @@ def getSign():
             return_value = sign_value
     return return_value
 
+def check_create_subrirect():
+    result = False
+    if ENV_CREATE_NEW_SUB in env:
+        create_new_sub = env[ENV_CREATE_NEW_SUB]
+        result = create_new_sub != None and create_new_sub.lower() == 'true'
+    return result
+
+def format_sub_direct():
+    time_format = env[ENV_FOLDER_TIME_FORMAT]
+    return datetime.now().strftime(time_format)
+
 if __name__ == '__main__':
     load_env()
     output = env[ENV_OUPUT_FOLDER]
     workspace = get_workspace()
     full_path = join_path(workspace, output)
+    if(check_create_subrirect() == True):
+        full_path = join_path(full_path, format_sub_direct())
     input_path = join_path(workspace, env[ENV_INPUT_FILE])
     input_mapper = load_input(input_path)
     if(exist_path(full_path) == False): 
