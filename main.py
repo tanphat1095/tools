@@ -15,6 +15,7 @@ ENV_GET_ALL="GET_ALL"
 ENV_CREATE_NEW_SUB = "CREATE_NEW_SUB"
 ENV_FOLDER_TIME_FORMAT="FOLDER_TIME_FORMAT"
 ENV_GIT_REPO = "GIT_REPO"
+ENV_CONCAT_CHAR="CONCAT_CHAR"
 
 SIGN = "--RELEASED--"
 BREAKLINE = "\n"
@@ -27,7 +28,9 @@ env = {
     ENV_INPUT_FILE : 'input.txt',
     ENV_OUPUT_FOLDER : 'RESULT',
     ENV_FOLDER_TIME_FORMAT: '%Y%m%d_%H%M%S',
-    ENV_CREATE_NEW_SUB : 'False'
+    ENV_CREATE_NEW_SUB : 'False',
+    ENV_CONCAT_CHAR : 'GO'
+
 
 }
 
@@ -81,10 +84,6 @@ def get_workspace():
     if ENV_WORKSPACE in env:
         workspace = env[ENV_WORKSPACE]
     work = parse_args().workspace
-    # if(len(sys.argv) > 1):
-    #     argv1 = sys.argv[1]
-    #     if(argv1 != None and len(argv1.strip()) > 0):
-    #         workspace = argv1
     if(work is not None):
         workspace = work
     elif(workspace == None):
@@ -139,6 +138,9 @@ def get_from_mapping(path):
     else:
         return get_all_input(path)
 
+def write_concat():
+    if ENV_CONCAT_CHAR in env and env[ENV_CONCAT_CHAR] is not None and len(env[ENV_CONCAT_CHAR]):
+        return env[ENV_CONCAT_CHAR]
 
 def get_all_input(path):
     result = None
@@ -248,5 +250,3 @@ def check_commit(hash):
 if __name__ == '__main__':
     main_function()
     
-    
-   
