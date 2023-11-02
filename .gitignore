@@ -3,3 +3,4 @@ dist/
 RESULT/
 input/
 *.spec
+__pycache__/

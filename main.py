@@ -4,6 +4,8 @@
 import os
 import sys
 from datetime import datetime
+import argparse
+from GitHelper import GitHelper
 
 ENV_WORKSPACE = 'WORKSPACE'
 ENV_OUPUT_FOLDER = 'OUPUT_FOLDER'
@@ -12,6 +14,7 @@ ENV_SIGN = 'SIGN'
 ENV_GET_ALL="GET_ALL"
 ENV_CREATE_NEW_SUB = "CREATE_NEW_SUB"
 ENV_FOLDER_TIME_FORMAT="FOLDER_TIME_FORMAT"
+ENV_GIT_REPO = "GIT_REPO"
 
 SIGN = "--RELEASED--"
 BREAKLINE = "\n"
@@ -25,9 +28,10 @@ env = {
     ENV_OUPUT_FOLDER : 'RESULT',
     ENV_FOLDER_TIME_FORMAT: '%Y%m%d_%H%M%S',
     ENV_CREATE_NEW_SUB : 'False'
+
 }
 
-def load_env():
+def load_env(args):
     path_env = ENV_FILE
     if(len(sys.argv) > 1):
         argv1 = sys.argv[1]
@@ -41,6 +45,7 @@ def load_env():
                 value = line_arr[1].strip()
                 if(len(key) > 0 and len(value) > 0):
                     env[key] = value
+    load_env_args(args)
     print("LOADED ENV: {}".format(env))
 
 
@@ -56,14 +61,32 @@ def join_path(path, parent):
 def basename(path):
     return os.path.basename(path)
 
+def isfile(path):
+    return os.path.isfile(path)
+
+def lstdir(path):
+    return os.listdir(path)
+
+def get_all_file(path):
+    result = []
+    for dir in lstdir(path):
+        dir = join_path(path, dir)
+        if(isfile(dir) == True):
+            result.append(dir)
+
+    return result
+
 def get_workspace():
     workspace = None
     if ENV_WORKSPACE in env:
         workspace = env[ENV_WORKSPACE]
-    if(len(sys.argv) > 1):
-        argv1 = sys.argv[1]
-        if(argv1 != None and len(argv1.strip()) > 0):
-            workspace = argv1
+    work = parse_args().workspace
+    # if(len(sys.argv) > 1):
+    #     argv1 = sys.argv[1]
+    #     if(argv1 != None and len(argv1.strip()) > 0):
+    #         workspace = argv1
+    if(work is not None):
+        workspace = work
     elif(workspace == None):
         workspace =  os.getcwd()
     print("WORKSPACE: {}".format(workspace))
@@ -71,19 +94,22 @@ def get_workspace():
 
 def load_input(input):
     mapper = {}
-    for line in open(input):
-        line_arr = line.split(SPLIT_PROP)
-        if len(line_arr) >= 2:
-            key = line_arr[0].strip()
-            value = line_arr[1].strip()
-            if(len(key) > 0 and len(value) > 0):
-                mapper[key] = value
+    if exist_path(input):
+        for line in open(input):
+            line_arr = line.split(SPLIT_PROP)
+            if len(line_arr) >= 2:
+                key = line_arr[0].strip()
+                value = line_arr[1].strip()
+                if(len(key) > 0 and len(value) > 0):
+                    mapper[key] = value
+    else:
+        print("Cannot find mapping file with 'ENV_INPUT_FILE' config in .merge-env in workspace")
     return mapper
 
 
 def process_inputs(key, value, path_out):
     full_path = join_path(path_out, key)
-    get_all = False
+    get_all: bool = False
     if(ENV_GET_ALL in env):
         get_all_values = env[ENV_GET_ALL].split(SPLIT_MULTI_VALUE)
         get_all = key in get_all_values
@@ -102,6 +128,8 @@ def process_inputs(key, value, path_out):
             output.write("/* {index}. {input} */ {breakline}".format(index = idx+1 ,input=basename(input), breakline=BREAKLINE))
             output.writelines(process_input(input, get_all))
             output.write(BREAKLINE)
+    if(output.closed == False):
+        output.close()
     print("----PROCESS DONE: {} {} {}".format(full_path, BREAKLINE, BREAKLINE))      
 
 def get_from_mapping(path):
@@ -109,9 +137,19 @@ def get_from_mapping(path):
     if(exist_path(path) == False):
         return ['']
     else:
-        file = open(path,'r')
-        return file.readlines()
+        return get_all_input(path)
 
+
+def get_all_input(path):
+    result = None
+    if(isfile(path) == True):
+        file = open(path,'r')
+        result = file.readlines()
+        if(file.closed == False):
+            file.close()
+    else:
+        result = get_all_file(path)
+    return result
 
 def process_input(path, get_all = False):
     print("READING {} ...".format(path))
@@ -123,6 +161,8 @@ def process_input(path, get_all = False):
             content = process_content(content)
             time = datetime.now()
             file.write("{breakline}{sign} {time}".format(breakline=BREAKLINE ,sign = getSign(), time = time.strftime("%m/%d/%Y, %H:%M:%S")))
+        if(file.closed == False):
+            file.close()
     print("READ DONE {}{}".format(path, BREAKLINE))
     return content
 
@@ -157,17 +197,56 @@ def format_sub_direct():
     time_format = env[ENV_FOLDER_TIME_FORMAT]
     return datetime.now().strftime(time_format)
 
-if __name__ == '__main__':
-    load_env()
-    output = env[ENV_OUPUT_FOLDER]
-    workspace = get_workspace()
-    full_path = join_path(workspace, output)
-    if(check_create_subrirect() == True):
-        full_path = join_path(full_path, format_sub_direct())
-    input_path = join_path(workspace, env[ENV_INPUT_FILE])
-    input_mapper = load_input(input_path)
-    if(exist_path(full_path) == False): 
-        mkdir(full_path)
-    for k,v in input_mapper.items():
-        process_inputs(k,v, full_path)
+
+def main_function():
+    args = parse_args()
+    load_env(args)
+    if args.check_commit is not None:
+        if ENV_GIT_REPO in env:
+            repo = env[ENV_GIT_REPO]
+            helper = GitHelper(repo)
+            for file in helper.get_by_commit(args.check_commit):
+                print(file)
+        else:
+            print('Please specify git repo')
+    if args.merge == True:
+        output = env[ENV_OUPUT_FOLDER]
+        workspace = get_workspace()
+        if workspace is None:
+            print('Cannot find workspace')
+        full_path = join_path(workspace, output)
+        if(check_create_subrirect() == True):
+            full_path = join_path(full_path, format_sub_direct())
+        input_path = join_path(workspace, env[ENV_INPUT_FILE])
+        input_mapper = load_input(input_path)
+        if(exist_path(full_path) == False and len(input_mapper.items()) > 0): 
+            mkdir(full_path)
+        for k,v in input_mapper.items():
+            process_inputs(k,v, full_path)
     print("DONE!")
+
+def parse_args():
+    parser = argparse.ArgumentParser("merge-file")
+    parser.add_argument('--git-repo', help='specify the git repository', type=str)
+    parser.add_argument('--workspace', help='Specify the workspace', type=str)
+    parser.add_argument('--check-commit', help='Get all file from commit split by ","', type=str)
+    parser.add_argument('--merge', help='Start merge file', action='store_true')
+    return parser.parse_args()
+
+def load_env_args(args):
+    print(args)
+    if args.git_repo is not None:
+        env[ENV_GIT_REPO] = args.git_repo
+    if args.workspace is not None:
+        env[ENV_WORKSPACE] = args.workspace
+def check_commit(hash):
+    if ENV_GIT_REPO in env and env[ENV_GIT_REPO]:
+        helper = GitHelper(env[ENV_GIT_REPO])
+        for file in helper.get_by_commit(hash):
+            print(file)
+
+if __name__ == '__main__':
+    main_function()
+    
+    
+   
