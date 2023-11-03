@@ -1,5 +1,5 @@
 from git import Repo
-import os
+from pathlib import Path
 
 
 class GitHelper():
@@ -10,16 +10,17 @@ class GitHelper():
         repo = Repo(self.repo)
         for commit in self.list_args(commits):
             for p,_ in repo.commit(commit).stats.files.items():
-                files.append(os.path.join(self.repo,p))
+                files.append(self.join_path(self.repo,p))
         return list(set(files))
 
     def list_args(self,commits):
         return list(commits.split(','))
 
-
+    def join_path(self, *paths):
+        return Path(*paths).absolute()
 
 if __name__ == '__main__':
-    gitspace = '/Users/phatle/workspace/Python/tools'
+    gitspace = 'D:\Backend\sl02y23dms\sl01y23dms'
     helper = GitHelper(gitspace)
-    for f in  helper.get_by_commit('286219002984e101c0fdd5fa1f57d6d59bf07dea'):
+    for f in  helper.get_by_commit('f6d96a271ac7a98ce131712d46bf7505bae22cbd'):
         print(f)

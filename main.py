@@ -2,10 +2,11 @@
 # author: Mr.Phat
 # date : 26-09-2023
 import os
-import sys
 from datetime import datetime
 import argparse
 from GitHelper import GitHelper
+import pathlib
+from pathlib import Path
 
 ENV_WORKSPACE = 'WORKSPACE'
 ENV_OUPUT_FOLDER = 'OUPUT_FOLDER'
@@ -16,6 +17,7 @@ ENV_CREATE_NEW_SUB = "CREATE_NEW_SUB"
 ENV_FOLDER_TIME_FORMAT="FOLDER_TIME_FORMAT"
 ENV_GIT_REPO = "GIT_REPO"
 ENV_CONCAT_CHAR="CONCAT_CHAR"
+ENV_WHITE_LIST = "WHITE_LIST"
 
 SIGN = "--RELEASED--"
 BREAKLINE = "\n"
@@ -29,17 +31,16 @@ env = {
     ENV_OUPUT_FOLDER : 'RESULT',
     ENV_FOLDER_TIME_FORMAT: '%Y%m%d_%H%M%S',
     ENV_CREATE_NEW_SUB : 'False',
-    ENV_CONCAT_CHAR : 'GO'
+    ENV_CONCAT_CHAR : 'GO',
+    ENV_WHITE_LIST: '.sql;.java;.txt'
 
 
 }
 
 def load_env(args):
     path_env = ENV_FILE
-    if(len(sys.argv) > 1):
-        argv1 = sys.argv[1]
-        if(argv1 != None and len(argv1)  > 0):
-            path_env = join_path(argv1, ENV_FILE)
+    if args.workspace is not None:
+        path_env = join_path(args.workspace, ENV_FILE)
     if exist_path(path_env):
         for line in open(path_env):
             line_arr = line.split(SPLIT_PROP)
@@ -49,7 +50,7 @@ def load_env(args):
                 if(len(key) > 0 and len(value) > 0):
                     env[key] = value
     load_env_args(args)
-    print("LOADED ENV: {}".format(env))
+    # print("LOADED ENV: {}".format(env))
 
 
 def exist_path(path):
@@ -58,8 +59,9 @@ def exist_path(path):
 def mkdir(path):
     os.makedirs(path)
 
-def join_path(path, parent):
-    return os.path.join(path, parent)
+def join_path(*dirs):
+    # return os.path.join(path, parent)
+    return Path(*dirs)
 
 def basename(path):
     return os.path.basename(path)
@@ -118,18 +120,24 @@ def process_inputs(key, value, path_out):
         output = open(full_path,'x')
     else:
         output = open(full_path, 'w').close()
-    output = open(full_path,'a')
+    output = open(full_path,'a', encoding="utf8")
     # inputs = value.split(";")
     inputs = get_from_mapping(value)
     for idx , input in enumerate(inputs):
-        if(input != None and len(input.strip()) > 0):
+        if(input != None and len(input.strip()) > 0) and check_extension(input):
             input = input.strip()
             output.write("/* {index}. {input} */ {breakline}".format(index = idx+1 ,input=basename(input), breakline=BREAKLINE))
             output.writelines(process_input(input, get_all))
             output.write(BREAKLINE)
+            if ENV_CONCAT_CHAR in env:
+                output.write(env[ENV_CONCAT_CHAR])
     if(output.closed == False):
         output.close()
     print("----PROCESS DONE: {} {} {}".format(full_path, BREAKLINE, BREAKLINE))      
+def check_extension(filename):
+    whitelist = env[ENV_WHITE_LIST].strip().split(SPLIT_MULTI_VALUE)
+    extension = pathlib.Path(filename).suffix
+    return extension in whitelist
 
 def get_from_mapping(path):
     path = join_path(get_workspace(), path)
@@ -157,7 +165,7 @@ def process_input(path, get_all = False):
     print("READING {} ...".format(path))
     content = ['']
     if(exist_path(path)):
-        file = open(path,'r+')
+        file = open(path,'r+', encoding="utf8")
         content = file.readlines()
         if(get_all == False):
             content = process_content(content)
@@ -199,18 +207,29 @@ def format_sub_direct():
     time_format = env[ENV_FOLDER_TIME_FORMAT]
     return datetime.now().strftime(time_format)
 
+def check_commit(args):
+    if ENV_GIT_REPO in env:
+        repo = env[ENV_GIT_REPO]
+        helper = GitHelper(repo)
+        files = []
+        for file in helper.get_by_commit(args.check_commit):
+            print(file)
+            files.append(file)
+        if args.output is not None:
+            write_out(files, args.output)
+    else:
+        print('Please specify git repo with --git-repo argument or GIT_REPO value in .merge-env file')
+
+def write_out(data, output):
+    file = open(output, 'w')
+    for line in data:
+        file.write("{line}{breakline}".format(line = line, breakline = BREAKLINE))
 
 def main_function():
     args = parse_args()
     load_env(args)
     if args.check_commit is not None:
-        if ENV_GIT_REPO in env:
-            repo = env[ENV_GIT_REPO]
-            helper = GitHelper(repo)
-            for file in helper.get_by_commit(args.check_commit):
-                print(file)
-        else:
-            print('Please specify git repo')
+        check_commit(args)
     if args.merge == True:
         output = env[ENV_OUPUT_FOLDER]
         workspace = get_workspace()
@@ -233,20 +252,14 @@ def parse_args():
     parser.add_argument('--workspace', help='Specify the workspace', type=str)
     parser.add_argument('--check-commit', help='Get all file from commit split by ","', type=str)
     parser.add_argument('--merge', help='Start merge file', action='store_true')
+    parser.add_argument('-o', '--output', help='Write to output file', type=str)
     return parser.parse_args()
 
 def load_env_args(args):
-    print(args)
     if args.git_repo is not None:
         env[ENV_GIT_REPO] = args.git_repo
     if args.workspace is not None:
         env[ENV_WORKSPACE] = args.workspace
-def check_commit(hash):
-    if ENV_GIT_REPO in env and env[ENV_GIT_REPO]:
-        helper = GitHelper(env[ENV_GIT_REPO])
-        for file in helper.get_by_commit(hash):
-            print(file)
 
 if __name__ == '__main__':
     main_function()
-    
