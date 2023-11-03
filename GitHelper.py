@@ -18,9 +18,3 @@ class GitHelper():
 
     def join_path(self, *paths):
         return Path(*paths).absolute()
-
-if __name__ == '__main__':
-    gitspace = 'D:\Backend\sl02y23dms\sl01y23dms'
-    helper = GitHelper(gitspace)
-    for f in  helper.get_by_commit('f6d96a271ac7a98ce131712d46bf7505bae22cbd'):
-        print(f)
