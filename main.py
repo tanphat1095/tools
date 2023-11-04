@@ -247,7 +247,7 @@ def main_function():
     print("DONE!")
 
 def parse_args():
-    parser = argparse.ArgumentParser("merge-file")
+    parser = argparse.ArgumentParser("merge-file", description="This function to concat multi file to single file")
     parser.add_argument('--git-repo', help='specify the git repository', type=str)
     parser.add_argument('--workspace', help='Specify the workspace', type=str)
     parser.add_argument('--check-commit', help='Get all file from commit split by ","', type=str)
