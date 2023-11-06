@@ -37,6 +37,9 @@ env = {
 
 }
 
+
+check_commit_files = []
+
 def load_env(args):
     path_env = ENV_FILE
     if args.workspace is not None:
@@ -124,7 +127,8 @@ def process_inputs(key, value, path_out):
     # inputs = value.split(";")
     inputs = get_from_mapping(value)
     for idx , input in enumerate(inputs):
-        if(input != None and len(input.strip()) > 0) and check_extension(input):
+        input = str(input).strip()
+        if input != None and len(input) > 0 and check_extension(input):
             input = input.strip()
             output.write("/* {index}. {input} */ {breakline}".format(index = idx+1 ,input=basename(input), breakline=BREAKLINE))
             output.writelines(process_input(input, get_all))
@@ -208,10 +212,10 @@ def format_sub_direct():
     return datetime.now().strftime(time_format)
 
 def check_commit(args):
+    files = []
     if ENV_GIT_REPO in env:
         repo = env[ENV_GIT_REPO]
         helper = GitHelper(repo)
-        files = []
         for file in helper.get_by_commit(args.check_commit):
             print(file)
             files.append(file)
@@ -219,6 +223,7 @@ def check_commit(args):
             write_out(files, args.output)
     else:
         print('Please specify git repo with --git-repo argument or GIT_REPO value in .merge-env file')
+    check_commit_files.extend(files)
 
 def write_out(data, output):
     file = open(output, 'w')
